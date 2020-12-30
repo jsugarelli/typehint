@@ -1,8 +1,10 @@
 test <- function(a,b) {
-  #| a data.frame dim(2,2) not(NULL, NA, "b") not(15)
+  #| a data.frame dim(2,>=2) not(NULL, NA, "b") not(15)
   z<-check_types(abort = FALSE, color = "#00FF00")
   # cat(z)
 }
+
+# r <- test(df, 4)
 
 
 # ........................ Actual code ........................
@@ -36,7 +38,7 @@ prep_msg <- function(templates, msg.index, fun.name, arg.name, arg.val, type.req
 
 
 
-get_argchecks <- function(function.call, code) {
+get_argchecks <- function(code) {
   argchecks <- list()
   
   if(NROW(code) > 0) {
@@ -117,7 +119,8 @@ check_types <- function(show.msg = TRUE, abort = TRUE, messages = c("Problem in 
   code <- capture.output(eval(parse(text = function.call[[1]])))
   code <- code[stringr::str_detect(stringr::str_trim(code), "^#\\|")]
   
-  argchecks <- get_argchecks(function.call, code)
+  argchecks <- get_argchecks(code)
+  comp.ops <- c(">", ">=", "=", "<", "<=")
   
   # Check actual parameters against arguments check list
   error = FALSE
@@ -203,5 +206,43 @@ check_types <- function(show.msg = TRUE, abort = TRUE, messages = c("Problem in 
     }
   }
   
-  return(argchecks)
+  return(error)
+}
+
+
+
+show_typehints <- function(fun, color ="#bd0245") {
+  
+  code <- capture.output(eval(fun))
+  code <- code[stringr::str_detect(stringr::str_trim(code), "^#\\|")]
+  argchecks <- get_argchecks(code)
+
+  comp.ops <- c(">", ">=", "=", "<", "<=")
+  sep.chars <- crayon::silver("  |||  ")
+    
+  
+  if(length(argchecks) > 0) {
+    for(i in 1:length(argchecks)) {
+      arg <- argchecks[[i]]
+      if(length(arg$dims) > 0) {
+        dims <- c()
+        for(f in 1:length(arg$dims)) {
+          if(arg$dims[[f]]$comp == 0) arg$dims[[f]]$comp <- 3
+          dims <- append(dims, paste0(stringr::str_replace(comp.ops[arg$dims[[f]]$comp], "^=$", ""), as.character(arg$dims[[f]]$value)))
+        }
+        dims <- paste0(dims, collapse = crayon::silver(" x "))
+      }
+      if(length(arg$nots) > 0) nots <- paste0(as.character(arg$nots), collapse = ", ")
+      
+      outp <- paste0(crayon::bold("Arg"), ": ", arg$arg, sep.chars, 
+                     crayon::bold("Type"), ": ", arg$class)
+      
+      if(nchar(dims) > 0) outp <- paste0(outp, sep.chars, crayon::bold("Dimensions"), ": ", dims)
+      if(nchar(nots) > 0) outp <- paste0(outp, sep.chars, crayon::bold("Not valid"), ": ", nots)
+      outp <- paste0(crayon::style(outp, as = crayon::make_style(color)), "\n")
+
+    }
+    
+    cat(outp)
+  }
 }
