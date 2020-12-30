@@ -1,28 +1,5 @@
-# z1 <- function(x,y) {
-#   #| Ein Kommentar f?r typehint
-# 
-#   
-#   z(1,2)
-# }
-# 
-# 
-# z <- function(a,b) {
-#   x <- match.call(definition = sys.function(sys.nframe()-1),
-#                   call = sys.calls()[[sys.nframe()-1]])
-#   
-#   x<-as.list(x)
-#   code <- capture.output(eval(parse(text = x[[1]])))
-#   print(code)
-#   return(x)
-# }
-
-
-
-
 test <- function(a,b) {
-  #| a numeric dim(45,<5) not(NULL, NA) not(15)
-  #| b numeric
-  #---#| arg1 type3 dim(1,1) not(32)
+  #| a data.frame dim(2,2) not(NULL, NA, "b") not(15)
   z<-check_types(abort = FALSE, color = "#00FF00")
   # cat(z)
 }
@@ -31,7 +8,35 @@ test <- function(a,b) {
 # ........................ Actual code ........................
 
 
-check_types <- function(show.msg = TRUE, abort = TRUE, messages = c("Problem in function '#fun()': ", "Argument '#arg' (#argval) is of class #type_is but needs to be of class #type_req."), color ="#bd0245") {
+prep_msg <- function(templates, msg.index, fun.name, arg.name, arg.val, type.req = "", type.is = "", dimcnt.req = 0, dimcnt.is = 0, dim.no = 0, dim.req = 0, dim.is = 0, dim.comp = "") {
+  msg <- stringr::str_replace_all(templates[msg.index], "#type_req", as.character(type.req))
+  msg <- stringr::str_replace_all(msg, "#type_is", as.character(type.is))
+  if(is.null(arg.val)) {
+    arg.val <- "NULL"
+  }
+  else {
+    if(is.na(arg.val)) {
+      arg.val <- "NA"
+    }
+    else {
+      if(class(arg.val) == "character") arg.val <- paste0("\"", arg.val, "\"")
+    }
+  }
+  msg <- stringr::str_replace_all(msg, "#argval", paste0(as.character(arg.val), collapse = ", "))
+  msg <- stringr::str_replace_all(msg, "#arg", as.character(arg.name))
+  msg <- stringr::str_replace_all(msg, "#dimcnt_is", as.character(dimcnt.is))
+  msg <- stringr::str_replace_all(msg, "#dimcnt_req", as.character(dimcnt.req))
+  msg <- stringr::str_replace_all(msg, "#dimno", as.character(dim.no))
+  msg <- stringr::str_replace_all(msg, "#dimcomp", as.character(dim.comp))
+  msg <- stringr::str_replace_all(msg, "#dim_req", as.character(dim.req))
+  msg <- stringr::str_replace_all(msg, "#dim_is", as.character(dim.is))
+  msg <- paste0(stringr::str_replace_all(templates[1], "#fun", as.character(fun.name)), msg,"\n")
+  return(msg)
+}
+
+
+
+check_types <- function(show.msg = TRUE, abort = TRUE, messages = c("Problem in function '#fun()': ", "Argument '#arg' (#argval) is of class #type_is but needs to be of class #type_req.", "Size of dimension #dimno of argument '#arg' must be #dimcomp#dim_req, but is actually #dim_is.", "Number of dimensions of argument '#arg' must be #dimcnt_req but is actually #dimcnt_is.", "#argval is not a valid value for argument #arg."), color ="#bd0245") {
   
   function.call <- match.call(definition = sys.function(sys.nframe()-1),
                   call = sys.calls()[[sys.nframe()-1]])
@@ -43,7 +48,7 @@ check_types <- function(show.msg = TRUE, abort = TRUE, messages = c("Problem in 
   
   if(NROW(code) > 0) {
     
-    comp_ops <- c(">", ">=", "=", "<", "<=")
+    comp.ops <- c(">", ">=", "=", "<", "<=")
     
     for(i in 1:NROW(code)) {
   
@@ -78,7 +83,7 @@ check_types <- function(show.msg = TRUE, abort = TRUE, messages = c("Problem in 
             for(f in 1:NROW(dims[[1]])) {
               if(is.na(dims[[1]][f,2])) comp <- 0
               else {
-                if(dims[[1]][f,2] %in% compops) {
+                if(dims[[1]][f,2] %in% comp.ops) {
                   comp <- switch(dims[[1]][f,2], ">"=1, ">="=2, "="=3, "<"=4, "<="=5)
                 }
                 else stop("\n'", dims[[1]][f,2], "' is not a valid comparison operator for the specification of an argument's dimension.\n")
@@ -94,7 +99,7 @@ check_types <- function(show.msg = TRUE, abort = TRUE, messages = c("Problem in 
         notselems <- c()
         if(length(nots[[1]]) > 0) {
           for(f in 1:NROW(nots[[1]])) {
-            notselems <- append(notselems, as.expression(sapply(stringr::str_split(nots[[1]][f,2], ","), FUN = stringr::str_trim)))
+            notselems <- append(notselems, as.expression(parse(text = sapply(stringr::str_split(nots[[1]][f,2], ","), FUN = stringr::str_trim))))
           }
         }
         if(argindex == 0) newarg$nots <- notselems
@@ -107,7 +112,7 @@ check_types <- function(show.msg = TRUE, abort = TRUE, messages = c("Problem in 
     }
   }
   
-  # Check parameter values against arguments check list
+  # Check actual parameters against arguments check list
   error = FALSE
   if(length(function.call) > 1 && length(argchecks) > 0) {
     for(i in 2:length(function.call)) {
@@ -119,57 +124,77 @@ check_types <- function(show.msg = TRUE, abort = TRUE, messages = c("Problem in 
         }
       }
       if(argindex != 0) {
-        if(class(function.call[[i]]) != argchecks[[argindex]]$class) {
-          msg <- stringr::str_replace_all(messages[2], "#type_req", argchecks[[argindex]]$class)
-          msg <- stringr::str_replace_all(msg, "#type_is", class(function.call[[i]]))
-          msg <- stringr::str_replace_all(msg, "#argval", function.call[[i]])
-          msg <- stringr::str_replace_all(msg, "#arg", argchecks[[argindex]]$arg)
-          msg <- paste0(stringr::str_replace_all(messages[1], "#fun", as.character(function.call[[1]])), msg,"\n")
+        arg.val <- eval(function.call[[i]], envir = sys.nframe()-1)
+        type.is <- class(arg.val)
+        
+        # Check for correct type 
+        if(type.is != argchecks[[argindex]]$class) {
           error <- TRUE
-          if(show.msg) cat(crayon::style(msg, as = crayon::make_style(color)))
+          if(show.msg) cat(crayon::style(prep_msg(templates = messages, msg.index = 2, fun.name = function.call[[1]], arg.name = argchecks[[argindex]]$arg, arg.val = arg.val, type.req = argchecks[[argindex]]$class, type.is = type.is), as = crayon::make_style(color)))
           if(abort) return(error)
         }
+        
+        # Check for correct number and size of dimensions
         if(!is.null(argchecks[[argindex]]$dims)) {
-          if(!(class(function.call[[i]]) %in% c("list"))) d <- dims(function.call[[i]])
-          else d <- length(function.call[[i]])
+          d <- dim(arg.val)
+          if(is.null(d)) d <- length(arg.val)
           if(NROW(d) == length(argchecks[[argindex]]$dims)) {
-            err_index <- 0
             for(f in 1:length(argchecks[[argindex]]$dims)) {
-              if(argchecks[[argindex]]$dims[[f]]$comp == 1 && d[f] <= eval(argchecks[[argindex]]$dims[[f]]$value, envir = parent.frame)) {
-                err_index = f  
-                break
-              }
-              if(argchecks[[argindex]]$dims[[f]]$comp == 2 && d[f] < eval(argchecks[[argindex]]$dims[[f]]$value, envir = parent.frame)) {
-                err_index = f  
-                break
-              }
-              if(argchecks[[argindex]]$dims[[f]]$comp %in% c(0,3) && d[f] != eval(argchecks[[argindex]]$dims[[f]]$value, envir = parent.frame)) {
-                err_index = f  
-                break
-              }
-              if(argchecks[[argindex]]$dims[[f]]$comp == 4 && d[f] >= eval(argchecks[[argindex]]$dims[[f]]$value, envir = parent.frame)) {
-                err_index = f  
-                break
-              }
-              if(argchecks[[argindex]]$dims[[f]]$comp == 5 && d[f] > eval(argchecks[[argindex]]$dims[[f]]$value, envir = parent.frame)) {
-                err_index = f  
-                break
-              }
+              err_index <- 0
+              dim.req <- as.numeric(eval(argchecks[[argindex]]$dims[[f]]$value, envir = sys.nframe()-1))
+              if(argchecks[[argindex]]$dims[[f]]$comp == 1 && d[f] <= dim.req) err_index <- 1
+              if(argchecks[[argindex]]$dims[[f]]$comp == 2 && d[f] < dim.req) err_index <- 2
+              if(argchecks[[argindex]]$dims[[f]]$comp %in% c(0,3) && d[f] != dim.req) err_index <- 3
+              if(argchecks[[argindex]]$dims[[f]]$comp == 4 && d[f] >= dim.req) err_index <- 4
+              if(argchecks[[argindex]]$dims[[f]]$comp == 5 && d[f] > dim.req) err_index <- 5
               if(err_index != 0) {
                 error <- TRUE
-                if(show.msg) cat(crayon::style(msg, as = crayon::make_style(color)))
+                if(show.msg) cat(crayon::style(prep_msg(templates = messages, msg.index = 3, fun.name = function.call[[1]], arg.name = argchecks[[argindex]]$arg, arg.val = arg.val, dim.no = f, dim.req = dim.req, dim.is = d[f], dim.comp = comp.ops[err_index]), as = crayon::make_style(color)))
                 if(abort) return(error)                
               }
             }
           }
           else {
-            # Falsche Zahl von Dimensionen
+            error <- TRUE
+            if(show.msg) cat(crayon::style(prep_msg(templates = messages, msg.index = 4, fun.name = function.call[[1]], arg.name = argchecks[[argindex]]$arg, arg.val = arg.val, dimcnt.req = length(argchecks[[argindex]]$dims), dimcnt.is = NROW(d)), as = crayon::make_style(color)))
           }
         }
-        # Hier geht's weiter mit den Checks für Argument i gegen argchecks[[argindex]]
+
+        # Check for non-valid values
+        if(!is.null(argchecks[[argindex]]$nots)) {
+          for(f in 1:NROW(argchecks[[argindex]]$nots)) {
+            notval <- eval(argchecks[[argindex]]$nots[f], envir = sys.nframe()-1)
+
+            if(class(arg.val) == "list") {
+              if(length(rlist::list.search(arg.val, identical(., eval(notval)))) > 0) {
+                error <- TRUE
+                if(show.msg) cat(crayon::style(prep_msg(templates = messages, msg.index = 5, fun.name = function.call[[1]], arg.name = argchecks[[argindex]]$arg, arg.val = notval), as = crayon::make_style(color)))
+                if(abort) break
+              }
+            }
+            else {
+              if(is.null(notval)) {
+                res <- any(is.null(arg.val))
+              } 
+              else {
+                if(is.na(notval)) {
+                  res <- any(is.na(arg.val), na.rm = TRUE)
+                }
+                else {
+                  res <- any(arg.val == notval, na.rm = TRUE)
+                }
+              }
+              if(res) {
+                error <- TRUE
+                if(show.msg) cat(crayon::style(prep_msg(templates = messages, msg.index = 5, fun.name = function.call[[1]], arg.name = argchecks[[argindex]]$arg, arg.val = notval), as = crayon::make_style(color)))
+                if(abort) break
+              }
+            }
+          }
+        }
       }
     }
   }
   
-  return(error)
+  return(argchecks)
 }
