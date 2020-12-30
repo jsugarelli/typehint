@@ -36,14 +36,7 @@ prep_msg <- function(templates, msg.index, fun.name, arg.name, arg.val, type.req
 
 
 
-check_types <- function(show.msg = TRUE, abort = TRUE, messages = c("Problem in function '#fun()': ", "Argument '#arg' (#argval) is of class #type_is but needs to be of class #type_req.", "Size of dimension #dimno of argument '#arg' must be #dimcomp#dim_req, but is actually #dim_is.", "Number of dimensions of argument '#arg' must be #dimcnt_req but is actually #dimcnt_is.", "#argval is not a valid value for argument #arg."), color ="#bd0245") {
-  
-  function.call <- match.call(definition = sys.function(sys.nframe()-1),
-                  call = sys.calls()[[sys.nframe()-1]])
-  function.call <- as.list(function.call)
-  code <- capture.output(eval(parse(text = function.call[[1]])))
-  code <- code[stringr::str_detect(stringr::str_trim(code), "^#\\|")]
-  
+get_argchecks <- function(function.call, code) {
   argchecks <- list()
   
   if(NROW(code) > 0) {
@@ -51,7 +44,7 @@ check_types <- function(show.msg = TRUE, abort = TRUE, messages = c("Problem in 
     comp.ops <- c(">", ">=", "=", "<", "<=")
     
     for(i in 1:NROW(code)) {
-  
+      
       # Identify argument name and type
       args <- stringr::str_replace_all(code[i], c("#\\|" = "", "dim\\([^\\)]*\\)" = "", "not\\([^\\)]*\\)" = ""))
       args <- stringr::str_match(args, "\\s*(\\S*)\\s*(\\S*)")
@@ -93,7 +86,7 @@ check_types <- function(show.msg = TRUE, abort = TRUE, messages = c("Problem in 
             }
           }
         }
-  
+        
         # Process excluded values
         nots <- stringr::str_match_all(code[i], "not\\(([^\\)]*)\\)")
         notselems <- c()
@@ -111,6 +104,20 @@ check_types <- function(show.msg = TRUE, abort = TRUE, messages = c("Problem in 
       
     }
   }
+  return(argchecks)
+}
+
+
+
+check_types <- function(show.msg = TRUE, abort = TRUE, messages = c("Problem in function '#fun()': ", "Argument '#arg' (#argval) is of class #type_is but needs to be of class #type_req.", "Size of dimension #dimno of argument '#arg' must be #dimcomp#dim_req, but is actually #dim_is.", "Number of dimensions of argument '#arg' must be #dimcnt_req but is actually #dimcnt_is.", "#argval is not a valid value for argument #arg."), color ="#bd0245") {
+  
+  function.call <- match.call(definition = sys.function(sys.nframe()-1),
+                  call = sys.calls()[[sys.nframe()-1]])
+  function.call <- as.list(function.call)
+  code <- capture.output(eval(parse(text = function.call[[1]])))
+  code <- code[stringr::str_detect(stringr::str_trim(code), "^#\\|")]
+  
+  argchecks <- get_argchecks(function.call, code)
   
   # Check actual parameters against arguments check list
   error = FALSE
