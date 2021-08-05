@@ -1,5 +1,3 @@
-# ........................ Actual code ........................
-
 oneifnull <- function(x) {
   if(is.null(x)) return(1)
   else return(x)
@@ -227,21 +225,22 @@ show_typehints <- function(fun, color ="#bd0245") {
   if(length(argchecks) > 0) {
     for(i in 1:length(argchecks)) {
       arg <- argchecks[[i]]
+      dims <- c()
       if(length(arg$dims) > 0) {
-        dims <- c()
         for(f in 1:length(arg$dims)) {
           if(arg$dims[[f]]$comp == 0) arg$dims[[f]]$comp <- 3
           dims <- append(dims, paste0(stringr::str_replace(comp.ops[arg$dims[[f]]$comp], "^=$", ""), as.character(arg$dims[[f]]$value)))
         }
         dims <- paste0(dims, collapse = crayon::silver(" x "))
       }
+      nots <- c()
       if(length(arg$nots) > 0) nots <- paste0(as.character(arg$nots), collapse = ", ")
       
       outp <- paste0(crayon::bold("Arg"), ": ", arg$arg, sep.chars, 
                      crayon::bold("Type"), ": ", arg$class)
       
-      if(nchar(dims) > 0) outp <- paste0(outp, sep.chars, crayon::bold("Dimensions"), ": ", dims)
-      if(nchar(nots) > 0) outp <- paste0(outp, sep.chars, crayon::bold("Not valid"), ": ", nots)
+      if(length(dims) > 0) outp <- paste0(outp, sep.chars, crayon::bold("Dimensions"), ": ", dims)
+      if(length(nots) > 0) outp <- paste0(outp, sep.chars, crayon::bold("Not valid"), ": ", nots)
       outp <- paste0(crayon::style(outp, as = crayon::make_style(color)), "\n")
 
     }
