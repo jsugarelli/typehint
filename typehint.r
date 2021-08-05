@@ -1,27 +1,29 @@
-test <- function(a,b) {
-  #| a data.frame dim(2,>=2) not(NULL, NA, "b") not(15)
-  z<-check_types(abort = FALSE, color = "#00FF00")
-  # cat(z)
+# ........................ Actual code ........................
+
+oneifnull <- function(x) {
+  if(is.null(x)) return(1)
+  else return(x)
 }
 
-# r <- test(df, 4)
-
-
-# ........................ Actual code ........................
 
 
 prep_msg <- function(templates, msg.index, fun.name, arg.name, arg.val, type.req = "", type.is = "", dimcnt.req = 0, dimcnt.is = 0, dim.no = 0, dim.req = 0, dim.is = 0, dim.comp = "") {
   msg <- stringr::str_replace_all(templates[msg.index], "#type_req", as.character(type.req))
   msg <- stringr::str_replace_all(msg, "#type_is", as.character(type.is))
-  if(is.null(arg.val)) {
-    arg.val <- "NULL"
+  if(oneifnull(length(arg.val)) > 1 | prod(oneifnull(dim(arg.val))) > 1) { 
+      arg.val <- paste0("\n\n", paste0(capture.output(print(arg.val)), collapse = "\n"), "\n\n")
   }
   else {
-    if(is.na(arg.val)) {
-      arg.val <- "NA"
+    if(is.null(arg.val)) {
+      arg.val <- "NULL"
     }
     else {
-      if(class(arg.val) == "character") arg.val <- paste0("\"", arg.val, "\"")
+      if(is.na(arg.val)) {
+        arg.val <- "NA"
+      }
+      else {
+        if(class(arg.val) == "character") arg.val <- paste0("\"", arg.val, "\"")
+      }
     }
   }
   msg <- stringr::str_replace_all(msg, "#argval", paste0(as.character(arg.val), collapse = ", "))
@@ -152,7 +154,7 @@ check_types <- function(show.msg = TRUE, abort = TRUE, messages = c("Problem in 
           if(NROW(d) == length(argchecks[[argindex]]$dims)) {
             for(f in 1:length(argchecks[[argindex]]$dims)) {
               err_index <- 0
-              dim.req <- as.numeric(eval(argchecks[[argindex]]$dims[[f]]$value, envir = ☺()-1))
+              dim.req <- as.numeric(eval(argchecks[[argindex]]$dims[[f]]$value, envir = sys.nframe()-1))
               if(argchecks[[argindex]]$dims[[f]]$comp == 1 && d[f] <= dim.req) err_index <- 1
               if(argchecks[[argindex]]$dims[[f]]$comp == 2 && d[f] < dim.req) err_index <- 2
               if(argchecks[[argindex]]$dims[[f]]$comp %in% c(0,3) && d[f] != dim.req) err_index <- 3
