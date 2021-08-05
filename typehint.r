@@ -83,7 +83,7 @@ get_argchecks <- function(code) {
                 }
                 else stop("\n'", dims[[1]][f,2], "' is not a valid comparison operator for the specification of an argument's dimension.\n")
               }
-              if(argindex == 0) newarg$dims[[length(newarg$dims)+1]] = list(comp = comp, value = as.expression(dims[[1]][f,3]))
+              if(argindex == 0) newarg$dims[[length(newarg$dims)+1]] <- list(comp = comp, value = as.expression(dims[[1]][f,3]))
               else argchecks[[argindex]]$dims[[length(argchecks[[argindex]]$dims)+1]] <- list(comp = comp, value = as.expression(dims[[1]][f,3]))
             }
           }
@@ -120,6 +120,7 @@ check_types <- function(show.msg = TRUE, abort = TRUE, messages = c("Problem in 
   code <- code[stringr::str_detect(stringr::str_trim(code), "^#\\|")]
   
   argchecks <- get_argchecks(code)
+  #View(argchecks)
   comp.ops <- c(">", ">=", "=", "<", "<=")
   
   # Check actual parameters against arguments check list
@@ -134,7 +135,7 @@ check_types <- function(show.msg = TRUE, abort = TRUE, messages = c("Problem in 
         }
       }
       if(argindex != 0) {
-        arg.val <- eval(function.call[[i]], envir = sys.nframe()-1)
+        arg.val <- eval(function.call[[i]], envir = sys.nframe()-2)
         type.is <- class(arg.val)
         
         # Check for correct type 
@@ -151,7 +152,7 @@ check_types <- function(show.msg = TRUE, abort = TRUE, messages = c("Problem in 
           if(NROW(d) == length(argchecks[[argindex]]$dims)) {
             for(f in 1:length(argchecks[[argindex]]$dims)) {
               err_index <- 0
-              dim.req <- as.numeric(eval(argchecks[[argindex]]$dims[[f]]$value, envir = sys.nframe()-1))
+              dim.req <- as.numeric(eval(argchecks[[argindex]]$dims[[f]]$value, envir = ☺()-1))
               if(argchecks[[argindex]]$dims[[f]]$comp == 1 && d[f] <= dim.req) err_index <- 1
               if(argchecks[[argindex]]$dims[[f]]$comp == 2 && d[f] < dim.req) err_index <- 2
               if(argchecks[[argindex]]$dims[[f]]$comp %in% c(0,3) && d[f] != dim.req) err_index <- 3
@@ -218,7 +219,7 @@ show_typehints <- function(fun, color ="#bd0245") {
   argchecks <- get_argchecks(code)
 
   comp.ops <- c(">", ">=", "=", "<", "<=")
-  sep.chars <- crayon::silver("  |||  ")
+  sep.chars <- crayon::silver(" | ")
     
   
   if(length(argchecks) > 0) {
