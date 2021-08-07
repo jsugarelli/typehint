@@ -1,0 +1,15 @@
+Package: typehint
+Title: Automatically Check the Data Type, Number and Size of Dimensions, and Values of Function Arguments
+Description: Type hints are special comments within a function body indicating the intended nature of the function's arguments in terms of data types, dimensions and permitted values. The actual parameters with which the function is called are evaluated against these type hint comments at run-time.
+Version: 0.1.0
+Authors@R: person("Joachim", "Zuckarelli", role = c("aut", "cre"), email = "joachim@zuckarelli.de", comment = c(ORCID="0000-0002-9280-3016"))
+Maintainer: Joachim Zuckarelli <joachim@zuckarelli.de>
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+Imports: stringr, crayon, rlist
+Repository: CRAN
+BugReports: https://github.com/jsugarelli/typehint/issues
+URL: https://github.com/jsugarelli/typehint/
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
